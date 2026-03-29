@@ -18,10 +18,20 @@ SERVER_BIN = server.exe
 all: $(CLIENT_BIN) $(SERVER_BIN)
 
 $(CLIENT_BIN):
-	powershell -Command "$$c = Get-Content $(CONFIG); $$ip = ($$c | Select-String '^IP=').ToString().Split('=')[1]; $$port = ($$c | Select-String '^PORT=').ToString().Split('=')[1]; (Get-Content $(CLIENT_SRC)) -replace 'IP_PLACEHOLDER',$$ip -replace '10293847576',$$port | Set-Content $(CLIENT_TMP)"
+	powershell -Command " \
+	if (Test-Path $(CONFIG)) { \
+		$$c = Get-Content $(CONFIG); \
+		$$ip = ($$c | Select-String '^IP=').ToString().Split('=')[1]; \
+		$$port = ($$c | Select-String '^PORT=').ToString().Split('=')[1]; \
+	} else { \
+		$$ip = '127.0.0.1'; \
+		$$port = '53127'; \
+	} \
+	(Get-Content $(CLIENT_SRC)) -replace 'IP_PLACEHOLDER',$$ip -replace '10293847576',$$port | Set-Content $(CLIENT_TMP) \
+	"
 	$(CXX) $(CXXFLAGS) $(CLIENT_TMP) -o $(CLIENT_BIN) $(LDFLAGS)
 	del /Q $(CLIENT_TMP)
-	@echo IP=$$ip PORT=$$port
+	@echo Using IP=$$ip PORT=$$port
 
 $(SERVER_BIN):
 	$(CXX) $(CXXFLAGS) $(SERVER_SRC) -o $(SERVER_BIN) $(LDFLAGS)
