@@ -1,2 +1,2 @@
-IP=90.108.89.181
+IP=putyouip
 PORT=53127
