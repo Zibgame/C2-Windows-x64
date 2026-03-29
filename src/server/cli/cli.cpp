@@ -26,6 +26,10 @@ DWORD WINAPI cli_thread(LPVOID arg)
         {
             printf("\033[2J\033[H");
             printf("Choose client (0 - %d):\n> ", (int)server->clients.size() - 1);
+            for (int i = 0; i < (int)server->clients.size(); i++)
+            {
+                printf("[%d] %s | %s\n",i, server->clients[i].hostname.c_str(), server->clients[i].ip.c_str());
+            }
 
             std::getline(std::cin, input);
             int target = atoi(input.c_str());

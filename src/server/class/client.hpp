@@ -2,6 +2,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
+#include <string>
 #include <stdio.h>
 
 class Client
@@ -11,4 +12,6 @@ class Client
         SOCKET socket;
         sockaddr_in addr;
         int addr_len;
+        std::string hostname;
+        std::string ip;
 };

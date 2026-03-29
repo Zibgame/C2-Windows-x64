@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <vector>
+#include <string>
 #include "client.hpp"
 #include "server.hpp"
 #include "cli.hpp"
@@ -22,6 +23,15 @@ void active_ansi()
         printf("ANSI not supported\n");
     }
     return ;
+}
+
+std::string get_ip(sockaddr_in addr)
+{
+    char ip[INET_ADDRSTRLEN];
+
+    inet_ntop(AF_INET, &addr.sin_addr, ip, INET_ADDRSTRLEN);
+
+    return std::string(ip);
 }
 
 int main()
@@ -112,6 +122,8 @@ int main()
             }
 
             Client new_client(client_socket, saClient, saClient_size);
+            new_client.ip = get_ip(new_client.addr);
+            //printf("%s", new_client.ip.c_str());
             server.clients.push_back(new_client);
             // printf(GREEN "Client connected! %d\n" RESET, (int)server.clients.size());
             // printf("Waiting for connection...\n");
@@ -123,16 +135,25 @@ int main()
             {
                 char buffer[1024];
                 int byte = recv(server.clients[i].socket, buffer, 1024, 0);
+                std::string data = buffer;
                 if (byte <= 0)
                 {
                     closesocket(server.clients[i].socket);
                     server.clients.erase(server.clients.begin() + i);
                     i--;
                 }
+                else if (data.find("[HOST]") == 0)
+                {
+                    std::string hostname = data.substr(6);
+                    hostname.erase(hostname.find_last_not_of("\r\n") + 1);
+
+                    server.clients[i].hostname = hostname;
+                    // printf("%s",server.clients[i].hostname.c_str());
+                }
                 else
                 {
                     buffer[byte] = '\0';
-                    // printf(YELLOW "\n\nClient %d: %s\n" RESET, i, buffer); // afficher output envoier par la commande client
+                    // printf(YELLOW "\n\nClient %d: %s\n" RESET, i, buffer); // afficher output envoier par la commande
                 }
             }         
         }
