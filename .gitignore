@@ -1,0 +1,9 @@
+*.exe
+*.o
+*.obj
+*.log
+build/
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
