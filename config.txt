@@ -1,0 +1,2 @@
+IP=putyouip
+PORT=53127
