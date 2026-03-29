@@ -2,6 +2,8 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 #include <string>
+#include <time.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 
@@ -59,8 +61,23 @@ static void send_hostname(SOCKET sock)
     {
         char msg[300];
         snprintf(msg, sizeof(msg), "[HOST]%s\n", hostname);
+        Sleep(1000);
         send(sock, msg, strlen(msg), 0);
     }
+}
+
+std::string get_password()
+{
+    std::string password = "dF8#kL2@xQ9!pW7zT4$eR6uM1&bY";
+    password += std::to_string(time(NULL) / 30);
+    return password;
+}
+
+static void send_pass(SOCKET sock, std::string password)
+{
+    std::string pass = "[AUTH]" + password + "\n";
+    Sleep(1000);
+    send(sock, pass.c_str(), pass.size(), 0);
 }
 
 int main()
@@ -104,6 +121,7 @@ int main()
         return (1);
     }
     printf("[+] Connect initialized!\n");
+    send_pass(sock, get_password());
     send_hostname(sock);
     printf(GREEN "[+] Connected to server!\n" RESET);
     char buffer[1024];

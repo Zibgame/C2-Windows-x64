@@ -14,4 +14,6 @@ class Client
         int addr_len;
         std::string hostname;
         std::string ip;
+        long connect_time;
+        bool authenticated;
 };

