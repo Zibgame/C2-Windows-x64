@@ -8,6 +8,7 @@
 #include "client.hpp"
 #include "server.hpp"
 #include "cli.hpp"
+#include "log.hpp"
 
 #define RED "\033[31m"
 #define GREEN "\033[32m"
@@ -40,6 +41,23 @@ std::string get_password()
     std::string password = "dF8#kL2@xQ9!pW7zT4$eR6uM1&bY";
     password += std::to_string(time(NULL) / 30);
     return password;
+}
+
+void kick_if_blacklist(Server *server, int index)
+{
+    int i;
+
+    i = 0;
+    while (i < (int)server->blacklist.size())
+    {
+        if (server->clients[index].ip == server->blacklist[i])
+        {
+            closesocket(server->clients[index].socket);
+            server->clients.erase(server->clients.begin() + index);
+            return;
+        }
+        i++;
+    }
 }
 
 int main()
@@ -100,9 +118,11 @@ int main()
     printf("Succes: Loop initialized\n");
     Server server;
     server.socket = sock;
+    server.blacklist.push_back("PUTYOURIP");
 
     CreateThread(NULL, 0, cli_thread, &server, 0, NULL);
     fd_set readfds;
+    create_logfile();
     printf("Waiting for connection...\n");
     while (true)
     {
@@ -133,6 +153,7 @@ int main()
             new_client.ip = get_ip(new_client.addr);
             new_client.connect_time = GetTickCount();
             server.clients.push_back(new_client);
+            kick_if_blacklist(&server, (int)server.clients.size() - 1);
             // printf(GREEN "Client connected! %d\n" RESET, (int)server.clients.size());
             // printf("Waiting for connection...\n");
         }
@@ -161,6 +182,7 @@ int main()
                     if (data == "[AUTH]" + p1 || data == "[AUTH]" + p2)
                     {
                         server.clients[i].authenticated = true;
+                        add_to_log("Succes auth");
                     }
                     else
                     {

@@ -12,4 +12,5 @@ public:
     Server();
     SOCKET socket;
     std::vector<Client> clients;
+    std::vector<std::string> blacklist;
 };

