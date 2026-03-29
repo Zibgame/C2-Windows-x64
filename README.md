@@ -41,7 +41,7 @@ src/
 Using MinGW / MSYS2:
 
 ```bash
-make
+ mingw32-make re
 ```
 
 ### 🔧 Generated binaries
