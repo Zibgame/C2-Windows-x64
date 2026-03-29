@@ -2,6 +2,9 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 #include <stdio.h>
+#include <vector>
+#include "client.hpp"
+#include "server.hpp"
 
 #define RED "\033[31m"
 #define GREEN "\033[32m"
@@ -70,24 +73,67 @@ int main()
     }
     printf("Succes: Listen initialized\n");
 
+    // prepare la sockaddr_in du client
     struct sockaddr_in saClient;
     int saClient_size = sizeof(saClient);
     SOCKET client_socket;
-    printf("Waiting for connection...\n");
-
-    client_socket = accept(sock, (struct sockaddr*)&saClient, &saClient_size);
-    if (client_socket == INVALID_SOCKET)
-    {
-        printf("Error: accept failed\n");
-        WSACleanup();
-        return (1);
-    }
-    printf(GREEN "Client connected!\n" RESET);
 
     printf("Succes: Loop initialized\n");
+    Server server;
+    server.socket = sock;
+
+    fd_set readfds;
+    printf("Waiting for connection...\n");
     while (true)
     {
-        Sleep(1000);
+        FD_ZERO(&readfds);
+
+        // socket serveur
+        FD_SET(server.socket, &readfds);
+        // sockets clients
+        for (int i = 0; i < (int)server.clients.size(); i++)
+            FD_SET(server.clients[i].socket, &readfds);
+
+        int activity = select(0, &readfds, NULL, NULL, NULL); //on regarde si ya une activiter dans les socket sinon on reregarde
+        if (activity < 0)
+            continue;
+
+        if (FD_ISSET(server.socket, &readfds)) // vue que le server est en ecouter si ya une activiter sa veut dire que ya un mec qui veut se co
+        {
+            saClient_size = sizeof(saClient);
+            client_socket = accept(server.socket, (struct sockaddr*)&saClient, &saClient_size); // attend une connextion est accept
+            if (client_socket == INVALID_SOCKET)
+            {
+                printf("Error: accept failed\n");
+                WSACleanup();
+                return (1);
+            }
+
+            Client new_client(client_socket, saClient, saClient_size);
+            server.clients.push_back(new_client);
+            printf(GREEN "Client connected! %d\n" RESET, (int)server.clients.size());
+            printf("Waiting for connection...\n");
+        }
+
+        for (int i = 0; i < (int)server.clients.size(); i++)
+        {
+            if (FD_ISSET(server.clients[i].socket, &readfds))
+            {
+                char buffer[1024];
+                int byte = recv(server.clients[i].socket, buffer, 1024, 0);
+                if (byte <= 0)
+                {
+                    closesocket(server.clients[i].socket);
+                    server.clients.erase(server.clients.begin() + i);
+                    i--;
+                }
+                else
+                {
+                    buffer[byte] = '\0';
+                    printf(YELLOW "Client %d: %s\n" RESET, i, buffer);
+                }
+            }         
+        }
     }
     WSACleanup();
     return (0);
