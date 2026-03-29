@@ -1,16 +1,19 @@
 # 🔌 Reverse Shell - Windows (C++)
 
-A minimal TCP reverse shell implementation built in C++ using the Windows Winsock API. This project demonstrates low-level networking concepts, client-server communication, and basic remote interaction in a controlled environment.
+A clean and modular TCP reverse shell built in C++ using the Windows Winsock API. This project focuses on low-level networking, process management, and multi-client handling in a controlled environment.
 
 ---
 
 ## 🚀 Features
 
-* TCP client/server architecture
-* Winsock (Windows networking API)
-* Real-time connection handling
-* Clean and readable C++ code
-* Colored terminal output (ANSI support)
+* 🔗 TCP client/server architecture
+* 🧠 Winsock (Windows networking API)
+* 👥 Multi-client handling with `select()`
+* 🔐 Time-based authentication system
+* 💻 Remote command execution (hidden process)
+* 🪟 No-console client build (stealth mode)
+* 📄 File logging system
+* 🎨 ANSI colored output
 
 ---
 
@@ -21,7 +24,14 @@ src/
 ├── client/
 │   └── main.cpp
 ├── server/
-│   └── main.cpp
+│   ├── main.cpp
+│   ├── class/
+│   │   ├── client.cpp
+│   │   └── server.cpp
+│   ├── cli/
+│   │   └── cli.cpp
+│   └── log/
+│       └── log.cpp
 ```
 
 ---
@@ -34,6 +44,12 @@ Using MinGW / MSYS2:
 make
 ```
 
+### 🔧 Generated binaries
+
+* `client.exe` → Debug version (console visible)
+* `client_no_console.exe` → Stealth version (no console)
+* `server.exe` → Multi-client server
+
 ---
 
 ## ▶️ Usage
@@ -44,47 +60,100 @@ make
 ./server.exe
 ```
 
-### 2. Run the client
+### 2. Run a client
 
 ```bash
 ./client.exe
 ```
 
-Once connected, the server will accept the incoming connection from the client.
+or (stealth mode):
+
+```bash
+./client_no_console.exe
+```
 
 ---
 
-## 🧠 What I Learned
+## 🧠 How it works
 
-* Socket lifecycle: `socket → bind → listen → accept`
-* Client connection: `socket → connect`
-* Blocking vs non-blocking behavior
-* Basic network debugging and testing
-* Structuring a clean C++ networking project
+### 🔌 Connection flow
+
+* Client connects to server
+* Sends authentication token
+* Sends hostname
+* Waits for commands
+
+### 🔑 Authentication
+
+* Based on a shared secret
+* Time-synchronized (rotates every 30 seconds)
+* Prevents unauthorized connections
+
+### 💻 Command execution
+
+* Server sends command
+* Client executes via `CreateProcess`
+* No visible window (`CREATE_NO_WINDOW`)
+* Output is captured via pipes and sent back
+
+### 👥 Multi-client handling
+
+* Server uses `select()`
+* Handles multiple clients simultaneously
+* Tracks authentication + hostname
+
+### 📄 Logging
+
+* Logs stored in:
+
+```
+other/logs/log.txt
+```
+
+* Example:
+
+```
+Succes auth
+```
+
+---
+
+## 🧪 Useful Commands
+
+### Kill all stealth clients
+
+```bash
+taskkill /IM client_no_console.exe /F
+```
 
 ---
 
 ## ⚠️ Disclaimer
 
-This project is for educational purposes only. It is designed to understand networking and system-level programming concepts in a safe and controlled environment.
+This project is strictly for educational purposes.
+
+It demonstrates:
+
+* Networking fundamentals
+* Process management
+* Client/server architecture
+
+Do not use this on systems you do not own or have explicit permission to test.
 
 ---
 
 ## 💡 Future Improvements
 
-* Multi-client handling (`select()`)
-* Command execution
-* Data transmission (`send` / `recv`)
-* Error handling improvements
-
----
-
-## 📌 Notes
-
-Antivirus software may flag this project due to its behavior. This is expected, as reverse shells share similarities with malware techniques.
+* 🔒 Real encryption (TLS)
+* 📊 Better logging system (timestamps, client IDs)
+* 🧩 Modular command system
+* 🌐 Cross-platform support (Linux client)
+* 📡 Reconnection mechanism
 
 ---
 
 ## 🧑‍💻 Author
 
-Built as part of a cybersecurity learning journey focused on low-level networking and offensive security fundamentals.
+Built as part of a cybersecurity and low-level programming learning journey.
+
+Focus: performance, clarity, and real-world understanding of system internals.
