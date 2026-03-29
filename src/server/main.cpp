@@ -5,6 +5,7 @@
 #include <vector>
 #include "client.hpp"
 #include "server.hpp"
+#include "cli.hpp"
 
 #define RED "\033[31m"
 #define GREEN "\033[32m"
@@ -82,6 +83,7 @@ int main()
     Server server;
     server.socket = sock;
 
+    CreateThread(NULL, 0, cli_thread, &server, 0, NULL);
     fd_set readfds;
     printf("Waiting for connection...\n");
     while (true)
@@ -111,8 +113,8 @@ int main()
 
             Client new_client(client_socket, saClient, saClient_size);
             server.clients.push_back(new_client);
-            printf(GREEN "Client connected! %d\n" RESET, (int)server.clients.size());
-            printf("Waiting for connection...\n");
+            // printf(GREEN "Client connected! %d\n" RESET, (int)server.clients.size());
+            // printf("Waiting for connection...\n");
         }
 
         for (int i = 0; i < (int)server.clients.size(); i++)
@@ -130,7 +132,7 @@ int main()
                 else
                 {
                     buffer[byte] = '\0';
-                    printf(YELLOW "Client %d: %s\n" RESET, i, buffer);
+                    // printf(YELLOW "\n\nClient %d: %s\n" RESET, i, buffer); // afficher output envoier par la commande client
                 }
             }         
         }

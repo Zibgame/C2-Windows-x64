@@ -1,11 +1,13 @@
 CXX = g++
-CXXFLAGS = -Wall -Wextra -Werror -Isrc/server/class
+CXXFLAGS = -Wall -Wextra -Werror -Isrc/server/class -Isrc/server/cli
 LDFLAGS = -lws2_32 -lkernel32
 
 CLIENT_SRC = src/client/main.cpp
+
 SERVER_SRC = src/server/main.cpp \
              src/server/class/client.cpp \
-             src/server/class/server.cpp
+             src/server/class/server.cpp \
+             src/server/cli/cli.cpp
 
 CLIENT_BIN = client.exe
 SERVER_BIN = server.exe
