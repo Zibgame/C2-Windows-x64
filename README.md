@@ -1,4 +1,4 @@
-# 🧠 C2-Windows-x64
+# 🧠 C2-Windows-x64 - Command & Control Framework
 
 A **Command & Control (C2) framework** written in C++ for Windows x64 systems.
 
