@@ -67,7 +67,7 @@ int main()
     int err;
     active_ansi();
 
-    // permet de choisir la version
+    // select Winsock version
     wVersionRequested = MAKEWORD(2, 2);
 
     err = WSAStartup(wVersionRequested,&wsaData);
@@ -78,9 +78,9 @@ int main()
     }
     printf("Succes: Winsock initialized\n");
     
-    int af = AF_INET; // IPV4
-    int type = SOCK_STREAM; // TCP
-    int protocol = 0; // Auto mais ducoup sa choisir TCP
+    int af = AF_INET; // IPv4
+    int type = SOCK_STREAM; // TCP socket
+    int protocol = 0; // auto (will use TCP here)
     SOCKET sock;
     sock = socket(af, type, protocol);
     if (sock == INVALID_SOCKET)
@@ -93,16 +93,16 @@ int main()
     struct sockaddr_in saServer;
     saServer.sin_family = AF_INET;
     saServer.sin_addr.s_addr = INADDR_ANY;
-    saServer.sin_port = htons(53127); // port HTTPS pour bypass firewall
+    saServer.sin_port = htons(53127); // using HTTPS port to avoid firewall issues
 
-    if (bind(sock, (struct sockaddr*)&saServer, sizeof(saServer)) == SOCKET_ERROR) //attache le socket a un port
+    if (bind(sock, (struct sockaddr*)&saServer, sizeof(saServer)) == SOCKET_ERROR) // bind socket to port
     {
         printf("Error: bind failed\n");
         return (1);
     }
     printf("Succes: Bind initialized\n");
 
-    if (listen(sock, SOMAXCONN) == SOCKET_ERROR) // mais le socket en mode ecoute avec SOMAXCONN qui dit pas de limit de machine
+    if (listen(sock, SOMAXCONN) == SOCKET_ERROR) // put socket in listening mode, max connections allowed
     {
         printf("Error: listen failed\n");
         WSACleanup();
@@ -110,7 +110,7 @@ int main()
     }
     printf("Succes: Listen initialized\n");
 
-    // prepare la sockaddr_in du client
+    // prepare client sockaddr structure
     struct sockaddr_in saClient;
     int saClient_size = sizeof(saClient);
     SOCKET client_socket;
@@ -128,20 +128,20 @@ int main()
     {
         FD_ZERO(&readfds);
 
-        // socket serveur
+        // server socket
         FD_SET(server.socket, &readfds);
-        // sockets clients
+        // client sockets
         for (int i = 0; i < (int)server.clients.size(); i++)
             FD_SET(server.clients[i].socket, &readfds);
 
-        int activity = select(0, &readfds, NULL, NULL, NULL); //on regarde si ya une activiter dans les socket sinon on reregarde
+        int activity = select(0, &readfds, NULL, NULL, NULL); // wait for activity on sockets
         if (activity < 0)
             continue;
 
-        if (FD_ISSET(server.socket, &readfds)) // vue que le server est en ecouter si ya une activiter sa veut dire que ya un mec qui veut se co
+        if (FD_ISSET(server.socket, &readfds)) // incoming connection on server socket
         {
             saClient_size = sizeof(saClient);
-            client_socket = accept(server.socket, (struct sockaddr*)&saClient, &saClient_size); // attend une connextion est accept
+            client_socket = accept(server.socket, (struct sockaddr*)&saClient, &saClient_size); // accept connection
             if (client_socket == INVALID_SOCKET)
             {
                 printf("Error: accept failed\n");
@@ -174,7 +174,7 @@ int main()
                     server.clients.erase(server.clients.begin() + i);
                     i--;
                 }
-                else if (!server.clients[i].authenticated) // check si password valide
+                else if (!server.clients[i].authenticated) // check password validity
                 {
                     std::string p1 = get_password();
                     std::string p2 = "dF8#kL2@xQ9!pW7zT4$eR6uM1&bY" + std::to_string((time(NULL)/30) - 1);
@@ -192,7 +192,7 @@ int main()
                         continue;
                     }
                 }   
-                else if (data.find("[HOST]") == 0) // choper le hostname
+                else if (data.find("[HOST]") == 0) // extract hostname
                 {
                     std::string hostname = data.substr(6);
                     hostname.erase(hostname.find_last_not_of("\r\n") + 1);
@@ -200,13 +200,13 @@ int main()
                     server.clients[i].hostname = hostname;
                     // printf("%s",server.clients[i].hostname.c_str());
                 }
-                else // choper se qui est envoyer
+                else // handle incoming client data
                 {
                     buffer[byte] = '\0';
-                    // printf(YELLOW "\n\nClient %d: %s\n" RESET, i, buffer); // afficher output envoier par la commande
+                    // printf(YELLOW "\n\nClient %d: %s\n" RESET, i, buffer);
                 }
             }
-            // verifier si il est la sans etre auth depuis longtemp
+            // check if client stayed too long without authenticating
             else if (!server.clients[i].authenticated)
             {
                 if (GetTickCount() - server.clients[i].connect_time > 5000)
