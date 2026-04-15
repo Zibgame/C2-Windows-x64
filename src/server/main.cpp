@@ -21,18 +21,13 @@ void active_ansi()
     DWORD dwMode = 0;
     GetConsoleMode(hOut, &dwMode);
     if (!SetConsoleMode(hOut, dwMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
-    {
         printf("ANSI not supported\n");
-    }
-    return ;
 }
 
 std::string get_ip(sockaddr_in addr)
 {
     char ip[INET_ADDRSTRLEN];
-
     inet_ntop(AF_INET, &addr.sin_addr, ip, INET_ADDRSTRLEN);
-
     return std::string(ip);
 }
 
@@ -45,9 +40,7 @@ std::string get_password()
 
 void kick_if_blacklist(Server *server, int index)
 {
-    int i;
-
-    i = 0;
+    int i = 0;
     while (i < (int)server->blacklist.size())
     {
         if (server->clients[index].ip == server->blacklist[i])
@@ -58,6 +51,30 @@ void kick_if_blacklist(Server *server, int index)
         }
         i++;
     }
+}
+
+// remove a client cleanly and keep loop index valid
+void remove_client(Server *server, int *i)
+{
+    closesocket(server->clients[*i].socket);
+    server->clients.erase(server->clients.begin() + *i);
+    (*i)--;
+}
+
+// handle authentication logic
+bool handle_auth(Server *server, int i, std::string data)
+{
+    std::string p1 = get_password();
+    std::string p2 = "dF8#kL2@xQ9!pW7zT4$eR6uM1&bY"
+        + std::to_string((time(NULL) / 30) - 1);
+
+    if (data == "[AUTH]" + p1 || data == "[AUTH]" + p2)
+    {
+        server->clients[i].authenticated = true;
+        add_to_log("Succes auth");
+        return true;
+    }
+    return false;
 }
 
 int main()
@@ -81,8 +98,7 @@ int main()
     int af = AF_INET; // IPv4
     int type = SOCK_STREAM; // TCP socket
     int protocol = 0; // auto (will use TCP here)
-    SOCKET sock;
-    sock = socket(af, type, protocol);
+    SOCKET sock = socket(af, type, protocol);
     if (sock == INVALID_SOCKET)
     {
         printf("Error: socket failed\n");
@@ -102,7 +118,7 @@ int main()
     }
     printf("Succes: Bind initialized\n");
 
-    if (listen(sock, SOMAXCONN) == SOCKET_ERROR) // put socket in listening mode, max connections allowed
+    if (listen(sock, SOMAXCONN) == SOCKET_ERROR) // put socket in listening mode
     {
         printf("Error: listen failed\n");
         WSACleanup();
@@ -124,24 +140,26 @@ int main()
     fd_set readfds;
     create_logfile();
     printf("Waiting for connection...\n");
+
     while (true)
     {
         FD_ZERO(&readfds);
 
         // server socket
         FD_SET(server.socket, &readfds);
+
         // client sockets
         for (int i = 0; i < (int)server.clients.size(); i++)
             FD_SET(server.clients[i].socket, &readfds);
 
-        int activity = select(0, &readfds, NULL, NULL, NULL); // wait for activity on sockets
+        int activity = select(0, &readfds, NULL, NULL, NULL); // wait for activity
         if (activity < 0)
             continue;
 
-        if (FD_ISSET(server.socket, &readfds)) // incoming connection on server socket
+        if (FD_ISSET(server.socket, &readfds)) // new incoming connection
         {
             saClient_size = sizeof(saClient);
-            client_socket = accept(server.socket, (struct sockaddr*)&saClient, &saClient_size); // accept connection
+            client_socket = accept(server.socket, (struct sockaddr*)&saClient, &saClient_size);
             if (client_socket == INVALID_SOCKET)
             {
                 printf("Error: accept failed\n");
@@ -154,8 +172,6 @@ int main()
             new_client.connect_time = GetTickCount();
             server.clients.push_back(new_client);
             kick_if_blacklist(&server, (int)server.clients.size() - 1);
-            // printf(GREEN "Client connected! %d\n" RESET, (int)server.clients.size());
-            // printf("Waiting for connection...\n");
         }
 
         for (int i = 0; i < (int)server.clients.size(); i++)
@@ -164,59 +180,45 @@ int main()
             {
                 char buffer[1024];
                 int byte = recv(server.clients[i].socket, buffer, 1024, 0);
+
+                if (byte <= 0) // connection closed or error
+                {
+                    remove_client(&server, &i);
+                    continue;
+                }
+
                 buffer[byte] = '\0';
                 std::string data = buffer;
-
                 data.erase(data.find_last_not_of("\r\n") + 1);
-                if (byte <= 0)
-                {
-                    closesocket(server.clients[i].socket);
-                    server.clients.erase(server.clients.begin() + i);
-                    i--;
-                }
-                else if (!server.clients[i].authenticated) // check password validity
-                {
-                    std::string p1 = get_password();
-                    std::string p2 = "dF8#kL2@xQ9!pW7zT4$eR6uM1&bY" + std::to_string((time(NULL)/30) - 1);
 
-                    if (data == "[AUTH]" + p1 || data == "[AUTH]" + p2)
+                if (!server.clients[i].authenticated) // handle authentication
+                {
+                    if (!handle_auth(&server, i, data))
                     {
-                        server.clients[i].authenticated = true;
-                        add_to_log("Succes auth");
-                    }
-                    else
-                    {
-                        closesocket(server.clients[i].socket);
-                        server.clients.erase(server.clients.begin() + i);
-                        i--;
+                        remove_client(&server, &i);
                         continue;
                     }
-                }   
+                }
                 else if (data.find("[HOST]") == 0) // extract hostname
                 {
                     std::string hostname = data.substr(6);
                     hostname.erase(hostname.find_last_not_of("\r\n") + 1);
-
                     server.clients[i].hostname = hostname;
-                    // printf("%s",server.clients[i].hostname.c_str());
                 }
-                else // handle incoming client data
+                else // handle other incoming data
                 {
-                    buffer[byte] = '\0';
                     // printf(YELLOW "\n\nClient %d: %s\n" RESET, i, buffer);
                 }
             }
-            // check if client stayed too long without authenticating
+            // disconnect if not authenticated after timeout
             else if (!server.clients[i].authenticated)
             {
                 if (GetTickCount() - server.clients[i].connect_time > 5000)
                 {
-                    closesocket(server.clients[i].socket);
-                    server.clients.erase(server.clients.begin() + i);
-                    i--;
+                    remove_client(&server, &i);
                     continue;
                 }
-            }   
+            }
         }
     }
     WSACleanup();
